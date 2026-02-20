@@ -238,7 +238,19 @@ const SlotsGame = () => {
             <p className="font-heading text-lg font-bold text-yellow-400">100x</p>
           </div>
         </div>
+        
+        {/* Jackpot Contribution */}
+        {jackpotContribution && (
+          <JackpotContribution amount={jackpotContribution} />
+        )}
       </div>
+      
+      {/* Jackpot Win Modal */}
+      <JackpotWinModal 
+        open={showJackpotWin} 
+        onClose={() => setShowJackpotWin(false)} 
+        amount={jackpotWinAmount} 
+      />
     </div>
   );
 };
