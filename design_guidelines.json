@@ -1,0 +1,108 @@
+{
+  "identity": {
+    "name": "NeonVegas",
+    "archetype": "Electric & Neon",
+    "vibe": "High-energy, risk-taking, premium cyberpunk",
+    "emotional_goal": "Excitement, Dopamine, Luxury"
+  },
+  "typography": {
+    "headings": {
+      "font_family": "Unbounded, sans-serif",
+      "weights": ["700", "900"],
+      "usage": "Hero titles, game categories, big win amounts",
+      "letter_spacing": "tracking-tight"
+    },
+    "body": {
+      "font_family": "Manrope, sans-serif",
+      "weights": ["400", "500", "600"],
+      "usage": "UI text, instructions, odds, balances"
+    },
+    "mono": {
+      "font_family": "JetBrains Mono, monospace",
+      "usage": "Transaction hashes, wallet addresses, countdown timers"
+    }
+  },
+  "colors": {
+    "base": {
+      "background": "#050505",
+      "foreground": "#ffffff",
+      "card": "#0a0a0a",
+      "card_foreground": "#ffffff"
+    },
+    "brand": {
+      "primary": "#d946ef",
+      "primary_foreground": "#ffffff",
+      "secondary": "#06b6d4",
+      "accent": "#eab308",
+      "destructive": "#ef4444"
+    },
+    "gradients": {
+      "primary_btn": "bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500",
+      "win_text": "bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-400",
+      "hero_glow": "bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-900/20 via-black to-black"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": {
+      "default": "bg-white/5 backdrop-blur-md border border-white/10",
+      "heavy": "bg-black/40 backdrop-blur-xl border border-white/5"
+    },
+    "borders": {
+      "neon": "border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]",
+      "subtle": "border border-white/10"
+    },
+    "shadows": {
+      "glow": "shadow-[0_0_20px_rgba(217,70,239,0.3)]",
+      "card": "shadow-xl shadow-black/50"
+    }
+  },
+  "layout_strategy": {
+    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+    "grid_system": "Bento Grid (mix of col-span-1, col-span-2, row-span-2)",
+    "spacing": "Generous (p-6, p-8) for game cards to allow artwork to breathe"
+  },
+  "components": {
+    "buttons": {
+      "primary": "rounded-full font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 shadow-lg shadow-purple-500/20",
+      "secondary": "rounded-full border border-white/20 hover:bg-white/10 transition-colors"
+    },
+    "cards": {
+      "game_card": "relative overflow-hidden rounded-xl group cursor-pointer transition-all hover:ring-2 hover:ring-purple-500 hover:shadow-2xl hover:-translate-y-1",
+      "stat_card": "bg-zinc-900/50 border border-white/5 rounded-lg p-6"
+    },
+    "inputs": {
+      "default": "bg-zinc-900/80 border-white/10 focus:border-purple-500 focus:ring-purple-500/20 rounded-lg h-12"
+    }
+  },
+  "image_urls": {
+    "hero_background": "https://images.unsplash.com/photo-1684643387396-d6b7695ba569?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "slots_thumbnail": "https://images.unsplash.com/photo-1566563255308-753861417000?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "blackjack_thumbnail": "https://images.unsplash.com/photo-1642867749315-d1467617a2f4?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "roulette_thumbnail": "https://images.pexels.com/photos/7594162/pexels-photo-7594162.jpeg",
+    "poker_thumbnail": "https://images.unsplash.com/photo-1743677042704-74a8390e765a?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "chips_3d": "https://images.pexels.com/photos/3279695/pexels-photo-3279695.jpeg"
+  },
+  "instructions_to_main_agent": [
+    "INSTALL: npm install framer-motion clsx tailwind-merge lucide-react @radix-ui/react-slot",
+    "FONTS: Add 'Unbounded' and 'Manrope' from Google Fonts in index.html or CSS import.",
+    "THEME: Force DARK MODE by default. The casino should not have a light mode.",
+    "ANIMATION: Use framer-motion for all page transitions and game interactions (card flips, wheel spins).",
+    "PAYMENTS: Use 'CreditCard' icon for Stripe and 'Banknote' icon for PayID. Stripe color: #635BFF. PayID color: #002B45 (or white on dark).",
+    "AUTH: Create a custom JWT hook. Do not rely on external auth providers for the UI logic.",
+    "GAMES: Implement actual game logic (RNG) in frontend for demo purposes, but structure it to call backend API for real bets.",
+    "CRITICAL: Ensure 'Deposit' button is always visible and distinct (e.g., fixed bottom bar on mobile, top right on desktop)."
+  ],
+  "universal_guidelines": {
+    "do_not": [
+      "Do not use generic 'Inter' font for headings.",
+      "Do not use standard Bootstrap/MUI blue colors.",
+      "Do not make the UI cluttered. Use negative space.",
+      "Do not use 'alert' for errors. Use 'sonner' toasts."
+    ],
+    "must_do": [
+      "Use 'data-testid' on all interactive elements.",
+      "Ensure mobile responsiveness is perfect (touch targets > 44px).",
+      "Use gradients for primary actions to make them pop against the dark background."
+    ]
+  }
+}
