@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../App";
 import { motion } from "framer-motion";
@@ -9,7 +10,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
-import { Zap, Wallet, User, LogOut, Gamepad2, Trophy, ChevronDown } from "lucide-react";
+import { Zap, Wallet, User, LogOut, Gamepad2, Trophy, ChevronDown, Shield } from "lucide-react";
+import { JackpotDisplay } from "../components/Jackpot";
+import { ResponsibleGamblingModal } from "../components/ResponsibleGambling";
 
 const NavBar = () => {
   const { user, logout } = useAuth();
