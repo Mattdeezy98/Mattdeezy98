@@ -326,6 +326,127 @@ class NeonVegasCasinoTester:
         """Test get leaderboard"""
         return self.run_test("Leaderboard", "GET", "leaderboard", 200)
 
+    def test_jackpot_api(self):
+        """Test jackpot API"""
+        success, response = self.run_test("Get Jackpot", "GET", "jackpot", 200)
+        
+        if success and 'amount' in response:
+            print(f"   ✅ Current jackpot: ${response['amount']}")
+            # Verify minimum jackpot is $1000
+            if response['amount'] >= 1000:
+                self.log_test("Jackpot Minimum Amount", True)
+            else:
+                self.log_test("Jackpot Minimum Amount", False, f"Expected >= $1000, got ${response['amount']}")
+            return True
+        return False
+
+    def test_jackpot_winners(self):
+        """Test jackpot winners API"""
+        return self.run_test("Get Jackpot Winners", "GET", "jackpot/winners", 200)
+
+    def test_payid_status(self):
+        """Test PayID status API"""
+        success, response = self.run_test("PayID Status", "GET", "wallet/payid/status", 200)
+        
+        if success and 'configured' in response:
+            print(f"   ✅ PayID configured: {response['configured']}")
+            print(f"   ✅ PayID environment: {response.get('environment', 'unknown')}")
+            print(f"   ✅ PayID provider: {response.get('provider', 'unknown')}")
+            
+            # Verify it's in demo mode (since API keys are empty)
+            if not response['configured'] and response.get('environment') == 'demo':
+                self.log_test("PayID Demo Mode", True)
+            else:
+                self.log_test("PayID Demo Mode", False, f"Expected demo mode, got configured={response['configured']}")
+            return True
+        return False
+
+    def test_responsible_gambling_limits_get(self):
+        """Test get responsible gambling limits"""
+        success, response = self.run_test("Get RG Limits", "GET", "responsible-gambling/limits", 200)
+        
+        if success and 'limits' in response:
+            print(f"   ✅ Current limits: {response['limits']}")
+            print(f"   ✅ Self-exclusion status: {response.get('self_exclusion', {})}")
+            return True
+        return False
+
+    def test_responsible_gambling_limits_set(self):
+        """Test set responsible gambling limits"""
+        limits_data = {
+            "daily_limit": 100.0,
+            "weekly_limit": 500.0,
+            "monthly_limit": 2000.0,
+            "session_time_limit": 120,
+            "reality_check_interval": 30
+        }
+        
+        success, response = self.run_test(
+            "Set RG Limits",
+            "POST",
+            "responsible-gambling/limits",
+            200,
+            limits_data
+        )
+        
+        if success and response.get('success'):
+            print(f"   ✅ Limits updated successfully")
+            return True
+        return False
+
+    def test_responsible_gambling_session(self):
+        """Test get session info for reality checks"""
+        # Use current time as session start
+        session_start = datetime.now().isoformat()
+        
+        success, response = self.run_test(
+            "Get Session Info",
+            "GET",
+            f"responsible-gambling/session?session_start={session_start}",
+            200
+        )
+        
+        if success and 'session_duration' in response:
+            print(f"   ✅ Session duration: {response['session_duration']} minutes")
+            print(f"   ✅ Total bet: ${response.get('total_bet', 0)}")
+            print(f"   ✅ Net result: ${response.get('net_result', 0)}")
+            return True
+        return False
+
+    def test_enhanced_slots_game(self):
+        """Test enhanced slots game with jackpot contribution"""
+        game_data = {
+            "game": "slots",
+            "amount": 10.0,
+            "bet_details": {}
+        }
+        
+        success, response = self.run_test(
+            "Enhanced Slots Game",
+            "POST",
+            "games/play",
+            200,
+            game_data
+        )
+        
+        if success and 'result' in response:
+            print(f"   ✅ Slots result: {response['result']}")
+            print(f"   ✅ Win amount: ${response.get('win_amount', 0)}")
+            print(f"   ✅ Jackpot contribution: ${response.get('jackpot_contribution', 0)}")
+            print(f"   ✅ Current jackpot: ${response.get('current_jackpot', 0)}")
+            
+            # Verify jackpot contribution is 2% of bet
+            expected_contribution = game_data['amount'] * 0.02
+            actual_contribution = response.get('jackpot_contribution', 0)
+            if abs(actual_contribution - expected_contribution) < 0.01:
+                self.log_test("Jackpot Contribution Rate", True)
+            else:
+                self.log_test("Jackpot Contribution Rate", False, 
+                            f"Expected ${expected_contribution:.2f}, got ${actual_contribution:.2f}")
+            
+            return True
+        return False
+
     def run_all_tests(self):
         """Run comprehensive test suite"""
         print("🎰 Starting NeonVegas Casino API Tests")
