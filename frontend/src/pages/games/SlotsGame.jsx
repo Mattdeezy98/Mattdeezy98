@@ -6,7 +6,8 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { toast } from "sonner";
 import axios from "axios";
-import { Zap, ArrowLeft, Wallet, Minus, Plus, Volume2, VolumeX, RotateCcw } from "lucide-react";
+import { Zap, ArrowLeft, Wallet, Minus, Plus, Volume2, VolumeX, RotateCcw, Trophy } from "lucide-react";
+import { JackpotDisplay, JackpotWinModal, JackpotContribution } from "../../components/Jackpot";
 
 const SYMBOLS = ["🍒", "🍋", "🍊", "🍇", "⭐", "7️⃣", "💎"];
 
@@ -18,6 +19,9 @@ const SlotsGame = () => {
   const [spinning, setSpinning] = useState(false);
   const [lastWin, setLastWin] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [jackpotContribution, setJackpotContribution] = useState(null);
+  const [showJackpotWin, setShowJackpotWin] = useState(false);
+  const [jackpotWinAmount, setJackpotWinAmount] = useState(0);
   const audioRef = useRef(null);
 
   const adjustBet = (delta) => {
