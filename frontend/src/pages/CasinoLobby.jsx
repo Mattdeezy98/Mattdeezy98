@@ -112,6 +112,7 @@ const NavBar = ({ onOpenRG }) => {
 
 const CasinoLobby = () => {
   const navigate = useNavigate();
+  const [showRGModal, setShowRGModal] = useState(false);
 
   const games = [
     {
@@ -154,12 +155,15 @@ const CasinoLobby = () => {
 
   return (
     <div className="min-h-screen bg-[#050505]">
-      <NavBar />
+      <NavBar onOpenRG={() => setShowRGModal(true)} />
 
-      {/* Hero Banner */}
+      {/* Hero Banner with Jackpot */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-purple-900/40 via-transparent to-cyan-900/40" />
-        <div className="max-w-7xl mx-auto px-4 py-12 relative">
+        <div className="max-w-7xl mx-auto px-4 py-8 relative">
+          {/* Jackpot Display */}
+          <JackpotDisplay className="mb-6" />
+          
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
