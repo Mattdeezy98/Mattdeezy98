@@ -82,6 +82,14 @@ const NavBar = () => {
                 <Wallet className="w-4 h-4 mr-2" />
                 Wallet
               </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={onOpenRG} 
+                className="text-green-400 hover:text-green-300 cursor-pointer"
+                data-testid="menu-responsible-gambling"
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                Responsible Gambling
+              </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-white/10" />
               <DropdownMenuItem 
                 onClick={() => {
