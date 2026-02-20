@@ -120,6 +120,9 @@ const SlotsGame = () => {
       </nav>
 
       <div className="max-w-2xl mx-auto px-4 py-8">
+        {/* Jackpot Display */}
+        <JackpotDisplay className="mb-6" />
+        
         {/* Slot Machine */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
