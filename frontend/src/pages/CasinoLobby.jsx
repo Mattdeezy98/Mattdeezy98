@@ -248,6 +248,12 @@ const CasinoLobby = () => {
           ))}
         </motion.div>
       </div>
+
+      {/* Responsible Gambling Modal */}
+      <ResponsibleGamblingModal 
+        open={showRGModal} 
+        onClose={() => setShowRGModal(false)} 
+      />
     </div>
   );
 };
