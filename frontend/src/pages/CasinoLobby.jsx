@@ -14,7 +14,7 @@ import { Zap, Wallet, User, LogOut, Gamepad2, Trophy, ChevronDown, Shield } from
 import { JackpotDisplay } from "../components/Jackpot";
 import { ResponsibleGamblingModal } from "../components/ResponsibleGambling";
 
-const NavBar = () => {
+const NavBar = ({ onOpenRG }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
