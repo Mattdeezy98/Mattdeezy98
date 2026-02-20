@@ -565,7 +565,9 @@ class ResponsibleGamblingService:
         user = await db.users.find_one({"id": user_id}, {"_id": 0})
         limits = user.get("gambling_limits", {})
         
-        start_time = datetime.fromisoformat(session_start)
+        start_time = datetime.fromisoformat(session_start.replace('Z', '+00:00'))
+        if start_time.tzinfo is None:
+            start_time = start_time.replace(tzinfo=timezone.utc)
         now = datetime.now(timezone.utc)
         session_duration = int((now - start_time).total_seconds() / 60)  # in minutes
         
