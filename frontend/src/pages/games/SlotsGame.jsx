@@ -63,6 +63,13 @@ const SlotsGame = () => {
         clearInterval(spinInterval);
         setReels(response.data.result.reels);
         updateBalance(response.data.new_balance);
+        setJackpotContribution(response.data.jackpot_contribution);
+        
+        // Check for jackpot win
+        if (response.data.jackpot_won) {
+          setJackpotWinAmount(response.data.result.jackpot_amount);
+          setShowJackpotWin(true);
+        }
         
         if (response.data.win_amount > 0) {
           setLastWin(response.data.win_amount);
