@@ -449,7 +449,7 @@ class NeonVegasCasinoTester:
 
     def run_all_tests(self):
         """Run comprehensive test suite"""
-        print("🎰 Starting NeonVegas Casino API Tests")
+        print("🎰 Starting NeonVegas Casino API Tests (Enhanced)")
         print("=" * 50)
         
         # Basic API tests
@@ -468,8 +468,20 @@ class NeonVegasCasinoTester:
         self.test_deposit_packages()
         self.test_stripe_checkout_creation()
         
-        # Game tests
-        self.test_slots_game()
+        # PayID status test
+        self.test_payid_status()
+        
+        # Jackpot tests
+        self.test_jackpot_api()
+        self.test_jackpot_winners()
+        
+        # Responsible gambling tests
+        self.test_responsible_gambling_limits_get()
+        self.test_responsible_gambling_limits_set()
+        self.test_responsible_gambling_session()
+        
+        # Enhanced game tests
+        self.test_enhanced_slots_game()
         self.test_blackjack_game()
         self.test_roulette_game()
         self.test_poker_game()
