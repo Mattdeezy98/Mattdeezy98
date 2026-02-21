@@ -673,6 +673,13 @@ class NeonVegasCasinoTester:
         self.test_responsible_gambling_limits_set()
         self.test_responsible_gambling_session()
         
+        # New slot provider tests
+        self.test_providers_status()
+        self.test_providers_games()
+        self.test_themed_slots_list()
+        self.test_themed_slot_details()
+        self.test_themed_slot_gameplay()
+        
         # Enhanced game tests
         self.test_enhanced_slots_game()
         self.test_blackjack_game()
