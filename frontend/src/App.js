@@ -207,6 +207,22 @@ function AppRoutes() {
             </ProtectedRoute>
           } 
         />
+        <Route 
+          path="/games/themed/:themeId" 
+          element={
+            <ProtectedRoute>
+              <PageWrapper><ThemedSlotGame /></PageWrapper>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/games/providers" 
+          element={
+            <ProtectedRoute>
+              <PageWrapper><ProviderGamesPage /></PageWrapper>
+            </ProtectedRoute>
+          } 
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AnimatePresence>
