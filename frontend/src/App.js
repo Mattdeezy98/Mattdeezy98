@@ -16,6 +16,8 @@ import SlotsGame from "./pages/games/SlotsGame";
 import BlackjackGame from "./pages/games/BlackjackGame";
 import RouletteGame from "./pages/games/RouletteGame";
 import PokerGame from "./pages/games/PokerGame";
+import ThemedSlotGame from "./pages/games/ThemedSlotGame";
+import ProviderGamesPage from "./pages/games/ProviderGamesPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
