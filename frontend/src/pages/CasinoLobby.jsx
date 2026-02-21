@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../App";
+import { useAuth, API } from "../App";
 import { motion } from "framer-motion";
 import { Button } from "../components/ui/button";
 import { 
@@ -10,9 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
-import { Zap, Wallet, User, LogOut, Gamepad2, Trophy, ChevronDown, Shield } from "lucide-react";
+import { Zap, Wallet, User, LogOut, Gamepad2, Trophy, ChevronDown, Shield, Sparkles, ExternalLink } from "lucide-react";
 import { JackpotDisplay } from "../components/Jackpot";
 import { ResponsibleGamblingModal } from "../components/ResponsibleGambling";
+import axios from "axios";
 
 const NavBar = ({ onOpenRG }) => {
   const { user, logout } = useAuth();
