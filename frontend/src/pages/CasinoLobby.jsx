@@ -114,6 +114,31 @@ const NavBar = ({ onOpenRG }) => {
 const CasinoLobby = () => {
   const navigate = useNavigate();
   const [showRGModal, setShowRGModal] = useState(false);
+  const [themedSlots, setThemedSlots] = useState([]);
+  const [providers, setProviders] = useState({});
+
+  useEffect(() => {
+    fetchThemedSlots();
+    fetchProviders();
+  }, []);
+
+  const fetchThemedSlots = async () => {
+    try {
+      const response = await axios.get(`${API}/games/themed-slots`);
+      setThemedSlots(response.data.slots || []);
+    } catch (error) {
+      console.error("Failed to fetch themed slots:", error);
+    }
+  };
+
+  const fetchProviders = async () => {
+    try {
+      const response = await axios.get(`${API}/providers/status`);
+      setProviders(response.data);
+    } catch (error) {
+      console.error("Failed to fetch providers:", error);
+    }
+  };
 
   const games = [
     {
@@ -153,6 +178,20 @@ const CasinoLobby = () => {
       maxWin: "800x",
     },
   ];
+
+  const getThemeGradient = (theme) => {
+    const gradients = {
+      egyptian: "from-yellow-700 to-amber-900",
+      asian: "from-red-700 to-rose-900",
+      classic: "from-indigo-700 to-slate-900",
+      underwater: "from-cyan-700 to-blue-900",
+      fruit: "from-green-700 to-emerald-900",
+      space: "from-purple-900 to-indigo-950",
+      safari: "from-amber-700 to-orange-900",
+      fantasy: "from-violet-700 to-purple-900"
+    };
+    return gradients[theme] || "from-gray-700 to-gray-900";
+  };
 
   return (
     <div className="min-h-screen bg-[#050505]">
