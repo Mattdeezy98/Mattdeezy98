@@ -268,6 +268,114 @@ const CasinoLobby = () => {
           ))}
         </div>
 
+        {/* Themed Slots Section */}
+        {themedSlots.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-12"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="font-heading text-2xl font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-6 h-6 text-yellow-400" />
+                  Themed Slots
+                </h2>
+                <p className="text-gray-400 text-sm">Explore unique slot experiences</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {themedSlots.map((slot, index) => (
+                <motion.div
+                  key={slot.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.05 }}
+                  onClick={() => navigate(`/games/themed/${slot.id}`)}
+                  className="group cursor-pointer"
+                  data-testid={`themed-slot-${slot.id}`}
+                >
+                  <div className={`rounded-xl overflow-hidden card-hover bg-gradient-to-br ${getThemeGradient(slot.theme)}`}>
+                    <div className="aspect-square p-4 flex flex-col items-center justify-center relative">
+                      <div className="text-4xl mb-2 flex gap-1">
+                        {slot.symbols?.slice(0, 3).map((s, i) => (
+                          <span key={i}>{s}</span>
+                        ))}
+                      </div>
+                      <h3 className="font-heading text-lg font-bold text-white text-center">{slot.name}</h3>
+                      <p className="text-white/70 text-xs mt-1">{slot.description}</p>
+                      
+                      <div className="absolute bottom-2 left-2 right-2 flex justify-between text-[10px]">
+                        <span className="px-1.5 py-0.5 bg-black/30 rounded text-white">
+                          RTP: {slot.rtp}%
+                        </span>
+                        <span className="px-1.5 py-0.5 bg-yellow-500/30 rounded text-yellow-300">
+                          {slot.max_multiplier}x
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* External Provider Games Section */}
+        {Object.keys(providers).length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="mt-12"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="font-heading text-2xl font-bold text-white flex items-center gap-2">
+                  <ExternalLink className="w-6 h-6 text-purple-400" />
+                  Provider Games
+                </h2>
+                <p className="text-gray-400 text-sm">JILI, Imperium, Slotomania & Rich</p>
+              </div>
+              <Button
+                onClick={() => navigate("/games/providers")}
+                variant="outline"
+                className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 rounded-full"
+                data-testid="view-all-providers"
+              >
+                View All
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {Object.entries(providers).map(([id, info], index) => (
+                <motion.div
+                  key={id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  onClick={() => navigate("/games/providers")}
+                  className="glass rounded-xl p-4 cursor-pointer card-hover text-center"
+                  data-testid={`provider-card-${id}`}
+                >
+                  <div className="text-4xl mb-2">
+                    {id === "jili" ? "🎰" : id === "imperium" ? "👑" : id === "slotomania" ? "🎲" : "💰"}
+                  </div>
+                  <h3 className="font-heading text-lg font-bold text-white">{info.name}</h3>
+                  <p className="text-gray-400 text-sm">{info.games_count} games</p>
+                  <span className={`inline-block mt-2 px-2 py-0.5 rounded text-xs ${
+                    info.configured ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {info.configured ? 'Live' : 'Demo'}
+                  </span>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
         {/* Quick Stats */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
