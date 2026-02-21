@@ -7,13 +7,15 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 import jwt
 import bcrypt
 import httpx
 import random
+import hashlib
+import hmac
 from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
 
 ROOT_DIR = Path(__file__).parent
@@ -35,13 +37,31 @@ STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY', 'sk_test_emergent')
 # PayID Configuration (Zai/Assembly Payments)
 PAYID_API_KEY = os.environ.get('PAYID_API_KEY', '')
 PAYID_API_SECRET = os.environ.get('PAYID_API_SECRET', '')
-PAYID_ENVIRONMENT = os.environ.get('PAYID_ENVIRONMENT', 'sandbox')  # sandbox or production
+PAYID_ENVIRONMENT = os.environ.get('PAYID_ENVIRONMENT', 'sandbox')
 PAYID_WEBHOOK_SECRET = os.environ.get('PAYID_WEBHOOK_SECRET', '')
 
+# External Game Provider Configurations
+JILI_API_KEY = os.environ.get('JILI_API_KEY', '')
+JILI_API_SECRET = os.environ.get('JILI_API_SECRET', '')
+JILI_AGENT_ID = os.environ.get('JILI_AGENT_ID', '')
+JILI_API_URL = os.environ.get('JILI_API_URL', 'https://api.jiligames.net')
+
+IMPERIUM_API_KEY = os.environ.get('IMPERIUM_API_KEY', '')
+IMPERIUM_API_SECRET = os.environ.get('IMPERIUM_API_SECRET', '')
+IMPERIUM_API_URL = os.environ.get('IMPERIUM_API_URL', 'https://api.imperium-games.com')
+
+SLOTOMANIA_API_KEY = os.environ.get('SLOTOMANIA_API_KEY', '')
+SLOTOMANIA_API_SECRET = os.environ.get('SLOTOMANIA_API_SECRET', '')
+SLOTOMANIA_API_URL = os.environ.get('SLOTOMANIA_API_URL', 'https://api.slotomania.com')
+
+RICH_API_KEY = os.environ.get('RICH_API_KEY', '')
+RICH_API_SECRET = os.environ.get('RICH_API_SECRET', '')
+RICH_API_URL = os.environ.get('RICH_API_URL', 'https://api.richgames.com')
+
 # Jackpot Configuration
-JACKPOT_CONTRIBUTION_RATE = 0.02  # 2% of each bet goes to jackpot
-JACKPOT_WIN_PROBABILITY = 0.0001  # 0.01% chance per spin to win jackpot
-MINIMUM_JACKPOT = 1000.0  # Minimum jackpot amount
+JACKPOT_CONTRIBUTION_RATE = 0.02
+JACKPOT_WIN_PROBABILITY = 0.0001
+MINIMUM_JACKPOT = 1000.0
 
 # Security
 security = HTTPBearer()
