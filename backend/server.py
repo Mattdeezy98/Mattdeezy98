@@ -1664,6 +1664,17 @@ async def play_game(bet: BetRequest, current_user: dict = Depends(get_current_us
         if result.get("hand_rank") == "royal_flush":
             jackpot_win = await jackpot_service.check_jackpot_win(current_user["id"], bet.amount)
     
+    elif bet.game.startswith("themed_slot_"):
+        # Custom themed slots
+        theme_id = bet.game.replace("themed_slot_", "")
+        result = process_themed_slot(theme_id, bet.bet_details)
+        if result.get("error"):
+            raise HTTPException(status_code=400, detail=result["error"])
+        if result["win"]:
+            win_amount = bet.amount * result["multiplier"]
+        # Check for jackpot win on themed slots
+        jackpot_win = await jackpot_service.check_jackpot_win(current_user["id"], bet.amount)
+    
     else:
         raise HTTPException(status_code=400, detail="Invalid game type")
     
