@@ -447,6 +447,199 @@ class NeonVegasCasinoTester:
             return True
         return False
 
+    def test_providers_status(self):
+        """Test providers status API - should return all 4 providers"""
+        success, response = self.run_test("Providers Status", "GET", "providers/status", 200)
+        
+        if success and isinstance(response, dict):
+            expected_providers = ["jili", "imperium", "slotomania", "rich"]
+            found_providers = list(response.keys())
+            
+            print(f"   ✅ Found providers: {found_providers}")
+            
+            # Check if all 4 providers are present
+            missing_providers = [p for p in expected_providers if p not in found_providers]
+            if not missing_providers:
+                self.log_test("All 4 Providers Present", True)
+                
+                # Check provider details
+                for provider_id, info in response.items():
+                    if provider_id in expected_providers:
+                        print(f"   ✅ {provider_id}: {info.get('name')} - {info.get('mode')} mode - {info.get('games_count')} games")
+                        
+                        # Verify provider has required fields
+                        required_fields = ['name', 'configured', 'mode', 'games_count']
+                        if all(field in info for field in required_fields):
+                            self.log_test(f"Provider {provider_id} Structure", True)
+                        else:
+                            self.log_test(f"Provider {provider_id} Structure", False, f"Missing fields: {[f for f in required_fields if f not in info]}")
+                
+                return True
+            else:
+                self.log_test("All 4 Providers Present", False, f"Missing providers: {missing_providers}")
+                return False
+        return False
+
+    def test_providers_games(self):
+        """Test providers games API - should return games from all providers"""
+        success, response = self.run_test("Providers Games", "GET", "providers/games", 200)
+        
+        if success and 'games' in response:
+            games = response['games']
+            print(f"   ✅ Total games found: {len(games)}")
+            
+            # Check games by provider
+            providers_with_games = {}
+            for game in games:
+                provider = game.get('provider')
+                if provider:
+                    if provider not in providers_with_games:
+                        providers_with_games[provider] = 0
+                    providers_with_games[provider] += 1
+            
+            print(f"   ✅ Games by provider: {providers_with_games}")
+            
+            # Verify all 4 providers have games
+            expected_providers = ["jili", "imperium", "slotomania", "rich"]
+            missing_providers = [p for p in expected_providers if p not in providers_with_games]
+            
+            if not missing_providers:
+                self.log_test("All Providers Have Games", True)
+                
+                # Check game structure
+                if games:
+                    sample_game = games[0]
+                    required_fields = ['id', 'name', 'type', 'provider']
+                    if all(field in sample_game for field in required_fields):
+                        self.log_test("Game Structure Valid", True)
+                    else:
+                        self.log_test("Game Structure Valid", False, f"Missing fields in game: {[f for f in required_fields if f not in sample_game]}")
+                
+                return True
+            else:
+                self.log_test("All Providers Have Games", False, f"Providers without games: {missing_providers}")
+                return False
+        return False
+
+    def test_themed_slots_list(self):
+        """Test themed slots list API - should return 8 themed slots"""
+        success, response = self.run_test("Themed Slots List", "GET", "games/themed-slots", 200)
+        
+        if success and 'slots' in response:
+            slots = response['slots']
+            print(f"   ✅ Total themed slots found: {len(slots)}")
+            
+            # Verify we have 8 themed slots
+            if len(slots) == 8:
+                self.log_test("8 Themed Slots Present", True)
+                
+                # Check slot structure and themes
+                themes_found = []
+                for slot in slots:
+                    theme = slot.get('theme')
+                    if theme:
+                        themes_found.append(theme)
+                    
+                    # Check required fields
+                    required_fields = ['id', 'name', 'theme', 'description', 'symbols', 'rtp']
+                    if all(field in slot for field in required_fields):
+                        self.log_test(f"Themed Slot {slot.get('id')} Structure", True)
+                    else:
+                        self.log_test(f"Themed Slot {slot.get('id')} Structure", False, f"Missing fields: {[f for f in required_fields if f not in slot]}")
+                
+                print(f"   ✅ Themes found: {themes_found}")
+                
+                # Verify expected themes are present
+                expected_themes = ["egyptian", "asian", "classic", "underwater", "fruit", "space", "safari", "fantasy"]
+                missing_themes = [t for t in expected_themes if t not in themes_found]
+                if not missing_themes:
+                    self.log_test("All Expected Themes Present", True)
+                else:
+                    self.log_test("All Expected Themes Present", False, f"Missing themes: {missing_themes}")
+                
+                return True
+            else:
+                self.log_test("8 Themed Slots Present", False, f"Expected 8 slots, found {len(slots)}")
+                return False
+        return False
+
+    def test_themed_slot_details(self):
+        """Test themed slot details API - pharaohs_gold"""
+        success, response = self.run_test("Themed Slot Details", "GET", "games/themed-slots/pharaohs_gold", 200)
+        
+        if success and 'id' in response:
+            slot = response
+            print(f"   ✅ Slot details: {slot.get('name')} - {slot.get('theme')} theme")
+            print(f"   ✅ RTP: {slot.get('rtp')}% - Volatility: {slot.get('volatility')}")
+            print(f"   ✅ Symbols: {slot.get('symbols')}")
+            
+            # Verify it's the pharaohs_gold slot
+            if slot.get('id') == 'pharaohs_gold' and slot.get('theme') == 'egyptian':
+                self.log_test("Pharaohs Gold Slot Details", True)
+                
+                # Check required fields
+                required_fields = ['id', 'name', 'theme', 'description', 'symbols', 'multipliers', 'rtp', 'volatility']
+                missing_fields = [f for f in required_fields if f not in slot]
+                if not missing_fields:
+                    self.log_test("Pharaohs Gold Complete Structure", True)
+                else:
+                    self.log_test("Pharaohs Gold Complete Structure", False, f"Missing fields: {missing_fields}")
+                
+                return True
+            else:
+                self.log_test("Pharaohs Gold Slot Details", False, f"Expected pharaohs_gold/egyptian, got {slot.get('id')}/{slot.get('theme')}")
+                return False
+        return False
+
+    def test_themed_slot_gameplay(self):
+        """Test themed slot gameplay - fortune_dragon"""
+        game_data = {
+            "game": "themed_slot_fortune_dragon",
+            "amount": 5.0,
+            "bet_details": {}
+        }
+        
+        success, response = self.run_test(
+            "Themed Slot Gameplay",
+            "POST",
+            "games/play",
+            200,
+            game_data
+        )
+        
+        if success and 'result' in response:
+            result = response['result']
+            print(f"   ✅ Themed slot result: {result}")
+            print(f"   ✅ Win amount: ${response.get('win_amount', 0)}")
+            print(f"   ✅ Jackpot contribution: ${response.get('jackpot_contribution', 0)}")
+            
+            # Verify result structure
+            required_fields = ['reels', 'win', 'theme', 'theme_name']
+            missing_fields = [f for f in required_fields if f not in result]
+            if not missing_fields:
+                self.log_test("Themed Slot Result Structure", True)
+                
+                # Verify it's fortune_dragon theme
+                if result.get('theme') == 'fortune_dragon':
+                    self.log_test("Fortune Dragon Theme Correct", True)
+                else:
+                    self.log_test("Fortune Dragon Theme Correct", False, f"Expected fortune_dragon, got {result.get('theme')}")
+                
+                # Verify jackpot contribution
+                expected_contribution = game_data['amount'] * 0.02
+                actual_contribution = response.get('jackpot_contribution', 0)
+                if abs(actual_contribution - expected_contribution) < 0.01:
+                    self.log_test("Themed Slot Jackpot Contribution", True)
+                else:
+                    self.log_test("Themed Slot Jackpot Contribution", False, 
+                                f"Expected ${expected_contribution:.2f}, got ${actual_contribution:.2f}")
+                
+                return True
+            else:
+                self.log_test("Themed Slot Result Structure", False, f"Missing fields: {missing_fields}")
+                return False
+        return False
+
     def run_all_tests(self):
         """Run comprehensive test suite"""
         print("🎰 Starting NeonVegas Casino API Tests (Enhanced)")
