@@ -1858,6 +1858,90 @@ def process_poker(bet_details):
         "multiplier": multiplier
     }
 
+# ==================== EXTERNAL PROVIDER ROUTES ====================
+
+@api_router.get("/providers/status")
+async def get_providers_status():
+    """Get status of all external game providers"""
+    return await external_provider.get_provider_status()
+
+@api_router.get("/providers/games")
+async def get_provider_games(provider: str = None):
+    """Get games catalog from providers"""
+    games = await external_provider.get_games_catalog(provider)
+    return {"games": games, "count": len(games)}
+
+@api_router.get("/providers/{provider}/games")
+async def get_specific_provider_games(provider: str):
+    """Get games from a specific provider"""
+    if provider not in external_provider.PROVIDERS:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    games = await external_provider.get_games_catalog(provider)
+    return {"provider": provider, "games": games, "count": len(games)}
+
+@api_router.post("/providers/{provider}/launch")
+async def launch_provider_game(provider: str, game_id: str, current_user: dict = Depends(get_current_user)):
+    """Launch a game from external provider"""
+    if provider not in external_provider.PROVIDERS:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    
+    result = await external_provider.launch_game(
+        provider, 
+        game_id, 
+        current_user["id"],
+        create_token(current_user["id"])
+    )
+    return result
+
+@api_router.post("/webhook/provider/{provider}")
+async def provider_webhook(provider: str, request: Request):
+    """Handle webhooks from external game providers (bet/win callbacks)"""
+    if provider not in external_provider.PROVIDERS:
+        return {"error": "Unknown provider", "code": 404}
+    
+    data = await request.json()
+    result = await external_provider.process_bet_callback(provider, data)
+    return result
+
+# ==================== THEMED SLOTS ROUTES ====================
+
+@api_router.get("/games/themed-slots")
+async def get_themed_slots():
+    """Get all available themed slot games"""
+    slots = []
+    for slot_id, slot_data in CUSTOM_SLOT_THEMES.items():
+        slots.append({
+            "id": slot_id,
+            "name": slot_data["name"],
+            "theme": slot_data["theme"],
+            "description": slot_data["description"],
+            "symbols": slot_data["symbols"],
+            "rtp": slot_data["rtp"],
+            "volatility": slot_data["volatility"],
+            "bg_color": slot_data["bg_color"],
+            "max_multiplier": max(slot_data["multipliers"].values())
+        })
+    return {"slots": slots, "count": len(slots)}
+
+@api_router.get("/games/themed-slots/{slot_id}")
+async def get_themed_slot_details(slot_id: str):
+    """Get details of a specific themed slot"""
+    if slot_id not in CUSTOM_SLOT_THEMES:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    
+    slot = CUSTOM_SLOT_THEMES[slot_id]
+    return {
+        "id": slot_id,
+        "name": slot["name"],
+        "theme": slot["theme"],
+        "description": slot["description"],
+        "symbols": slot["symbols"],
+        "multipliers": slot["multipliers"],
+        "rtp": slot["rtp"],
+        "volatility": slot["volatility"],
+        "bg_color": slot["bg_color"]
+    }
+
 # ==================== LEADERBOARD ====================
 
 @api_router.get("/leaderboard")
