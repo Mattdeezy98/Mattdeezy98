@@ -1849,6 +1849,167 @@ async def get_session_info(session_start: str, current_user: dict = Depends(get_
     """Get session information for reality checks"""
     return await rg_service.get_session_info(current_user["id"], session_start)
 
+# ==================== VIP ROUTES ====================
+
+@api_router.get("/vip/status")
+async def get_vip_status(current_user: dict = Depends(get_current_user)):
+    """Get user's VIP status"""
+    return await vip_service.update_user_vip(current_user["id"])
+
+@api_router.get("/vip/tiers")
+async def get_vip_tiers():
+    """Get all VIP tier information"""
+    return {"tiers": VIP_TIERS}
+
+@api_router.post("/vip/claim-daily")
+async def claim_vip_daily_bonus(current_user: dict = Depends(get_current_user)):
+    """Claim VIP daily bonus"""
+    return await vip_service.claim_daily_bonus(current_user["id"])
+
+@api_router.post("/vip/claim-cashback")
+async def claim_vip_cashback(current_user: dict = Depends(get_current_user)):
+    """Claim weekly cashback"""
+    return await vip_service.process_cashback(current_user["id"])
+
+# ==================== TOURNAMENT ROUTES ====================
+
+@api_router.get("/tournaments")
+async def get_tournaments():
+    """Get active and upcoming tournaments"""
+    return {"tournaments": await tournament_service.get_active_tournaments()}
+
+@api_router.get("/tournaments/{tournament_id}")
+async def get_tournament(tournament_id: str):
+    """Get tournament details"""
+    tournament = await db.tournaments.find_one({"id": tournament_id}, {"_id": 0})
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    tournament["leaderboard"] = await tournament_service.get_tournament_leaderboard(tournament_id)
+    return tournament
+
+@api_router.post("/tournaments/{tournament_id}/join")
+async def join_tournament(tournament_id: str, current_user: dict = Depends(get_current_user)):
+    """Join a tournament"""
+    return await tournament_service.join_tournament(tournament_id, current_user["id"])
+
+@api_router.get("/tournaments/{tournament_id}/leaderboard")
+async def get_tournament_leaderboard(tournament_id: str):
+    """Get tournament leaderboard"""
+    return {"leaderboard": await tournament_service.get_tournament_leaderboard(tournament_id)}
+
+# ==================== DAILY CHALLENGES ROUTES ====================
+
+@api_router.get("/challenges")
+async def get_daily_challenges(current_user: dict = Depends(get_current_user)):
+    """Get user's daily challenges"""
+    return {"challenges": await daily_challenges_service.get_daily_challenges(current_user["id"])}
+
+@api_router.post("/challenges/{challenge_id}/claim")
+async def claim_challenge_reward(challenge_id: str, current_user: dict = Depends(get_current_user)):
+    """Claim challenge reward"""
+    return await daily_challenges_service.claim_challenge_reward(current_user["id"], challenge_id)
+
+# ==================== ENHANCED SLOTS ROUTES ====================
+
+@api_router.post("/games/enhanced-slots/spin")
+async def play_enhanced_slots(bet_per_line: float = 0.1, lines: int = 10, current_user: dict = Depends(get_current_user)):
+    """Play enhanced 5-reel slot machine"""
+    total_bet = bet_per_line * lines
+    
+    if total_bet <= 0:
+        raise HTTPException(status_code=400, detail="Invalid bet amount")
+    if total_bet > current_user["balance"]:
+        raise HTTPException(status_code=400, detail="Insufficient balance")
+    if total_bet > 100:
+        raise HTTPException(status_code=400, detail="Maximum bet is $100")
+    
+    # Deduct bet
+    await db.users.update_one(
+        {"id": current_user["id"]},
+        {"$inc": {"balance": -total_bet}}
+    )
+    
+    # Spin
+    result = enhanced_slot_machine.spin(bet_per_line, lines)
+    
+    # Jackpot contribution
+    contribution = await jackpot_service.contribute(total_bet)
+    
+    # Check jackpot win
+    jackpot_win = None
+    if result["bonus_triggered"]:
+        jackpot_win = await jackpot_service.check_jackpot_win(current_user["id"], total_bet)
+    
+    total_win = result["total_win"]
+    if result["bonus_triggered"]:
+        total_win *= result["bonus_multiplier"]
+    
+    if jackpot_win and jackpot_win.get("won"):
+        total_win += jackpot_win["amount"]
+        result["jackpot_won"] = True
+        result["jackpot_amount"] = jackpot_win["amount"]
+    
+    # Add winnings
+    if total_win > 0:
+        await db.users.update_one(
+            {"id": current_user["id"]},
+            {"$inc": {"balance": total_win}}
+        )
+    
+    # Update challenges
+    await daily_challenges_service.update_challenge_progress(
+        current_user["id"], "slots", "spin"
+    )
+    await daily_challenges_service.update_challenge_progress(
+        current_user["id"], "any", "wager", total_bet
+    )
+    await daily_challenges_service.update_challenge_progress(
+        current_user["id"], "any", "jackpot_contribution", contribution
+    )
+    
+    if total_win > 0 and total_bet > 0:
+        multiplier = total_win / total_bet
+        await daily_challenges_service.update_challenge_progress(
+            current_user["id"], "any", "multiplier", multiplier
+        )
+    
+    # Record transaction
+    await db.transactions.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": current_user["id"],
+        "type": "bet",
+        "amount": total_bet,
+        "method": "enhanced_slots",
+        "status": "completed",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "details": {"lines": lines, "bet_per_line": bet_per_line}
+    })
+    
+    if total_win > 0:
+        await db.transactions.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": current_user["id"],
+            "type": "win",
+            "amount": total_win,
+            "method": "enhanced_slots",
+            "status": "completed",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "details": result
+        })
+    
+    # Update VIP
+    await vip_service.update_user_vip(current_user["id"])
+    
+    # Get new balance
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0, "balance": 1})
+    
+    return {
+        **result,
+        "total_win": total_win,
+        "new_balance": user["balance"],
+        "jackpot_contribution": contribution
+    }
+
 # ==================== JACKPOT ROUTES ====================
 
 @api_router.get("/jackpot")
