@@ -864,6 +864,583 @@ def process_themed_slot(theme_id: str, bet_details: dict) -> dict:
         "theme_name": theme["name"]
     }
 
+# ==================== VIP SYSTEM SERVICE ====================
+
+class VIPService:
+    """VIP Tier System with cashback and bonuses"""
+    
+    def get_tier(self, total_wagered: float) -> str:
+        """Get VIP tier based on total wagered amount"""
+        tier = "bronze"
+        for tier_name, config in VIP_TIERS.items():
+            if total_wagered >= config["min_wagered"]:
+                tier = tier_name
+        return tier
+    
+    def get_tier_info(self, tier: str) -> dict:
+        """Get tier benefits"""
+        config = VIP_TIERS.get(tier, VIP_TIERS["bronze"])
+        return {
+            "tier": tier,
+            "cashback_rate": config["cashback"],
+            "bonus_multiplier": config["bonus_multiplier"],
+            "daily_bonus": config["daily_bonus"],
+            "next_tier": self._get_next_tier(tier),
+            "next_tier_requirement": self._get_next_requirement(tier)
+        }
+    
+    def _get_next_tier(self, current: str) -> Optional[str]:
+        tiers = list(VIP_TIERS.keys())
+        idx = tiers.index(current)
+        return tiers[idx + 1] if idx < len(tiers) - 1 else None
+    
+    def _get_next_requirement(self, current: str) -> Optional[float]:
+        next_tier = self._get_next_tier(current)
+        if next_tier:
+            return VIP_TIERS[next_tier]["min_wagered"]
+        return None
+    
+    async def update_user_vip(self, user_id: str) -> dict:
+        """Update user's VIP status based on wagering"""
+        # Calculate total wagered
+        wagered = await db.transactions.aggregate([
+            {"$match": {"user_id": user_id, "type": "bet"}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]).to_list(1)
+        
+        total_wagered = wagered[0]["total"] if wagered else 0
+        new_tier = self.get_tier(total_wagered)
+        
+        # Update user
+        await db.users.update_one(
+            {"id": user_id},
+            {"$set": {
+                "vip_tier": new_tier,
+                "total_wagered": total_wagered
+            }}
+        )
+        
+        return {
+            "tier": new_tier,
+            "total_wagered": total_wagered,
+            **self.get_tier_info(new_tier)
+        }
+    
+    async def claim_daily_bonus(self, user_id: str) -> dict:
+        """Claim VIP daily bonus"""
+        user = await db.users.find_one({"id": user_id}, {"_id": 0})
+        tier = user.get("vip_tier", "bronze")
+        last_claim = user.get("last_daily_bonus")
+        
+        now = datetime.now(timezone.utc)
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        if last_claim:
+            last_claim_date = datetime.fromisoformat(last_claim.replace('Z', '+00:00'))
+            if last_claim_date.tzinfo is None:
+                last_claim_date = last_claim_date.replace(tzinfo=timezone.utc)
+            if last_claim_date >= today:
+                return {"success": False, "message": "Daily bonus already claimed today"}
+        
+        bonus = VIP_TIERS[tier]["daily_bonus"]
+        
+        # Add bonus to balance
+        await db.users.update_one(
+            {"id": user_id},
+            {
+                "$inc": {"balance": bonus},
+                "$set": {"last_daily_bonus": now.isoformat()}
+            }
+        )
+        
+        # Record transaction
+        await db.transactions.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "type": "bonus",
+            "amount": bonus,
+            "method": "vip_daily",
+            "status": "completed",
+            "created_at": now.isoformat(),
+            "details": {"tier": tier}
+        })
+        
+        return {"success": True, "bonus": bonus, "tier": tier}
+    
+    async def process_cashback(self, user_id: str) -> dict:
+        """Calculate and process weekly cashback"""
+        user = await db.users.find_one({"id": user_id}, {"_id": 0})
+        tier = user.get("vip_tier", "bronze")
+        cashback_rate = VIP_TIERS[tier]["cashback"]
+        
+        # Get losses in the past week
+        week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+        
+        bets = await db.transactions.aggregate([
+            {"$match": {"user_id": user_id, "type": "bet", "created_at": {"$gte": week_ago.isoformat()}}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]).to_list(1)
+        
+        wins = await db.transactions.aggregate([
+            {"$match": {"user_id": user_id, "type": "win", "created_at": {"$gte": week_ago.isoformat()}}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]).to_list(1)
+        
+        total_bet = bets[0]["total"] if bets else 0
+        total_won = wins[0]["total"] if wins else 0
+        net_loss = max(0, total_bet - total_won)
+        
+        cashback = net_loss * cashback_rate
+        
+        if cashback > 0:
+            await db.users.update_one(
+                {"id": user_id},
+                {"$inc": {"balance": cashback}}
+            )
+            
+            await db.transactions.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "type": "bonus",
+                "amount": cashback,
+                "method": "vip_cashback",
+                "status": "completed",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "details": {"tier": tier, "net_loss": net_loss, "rate": cashback_rate}
+            })
+        
+        return {"cashback": cashback, "net_loss": net_loss, "tier": tier}
+
+vip_service = VIPService()
+
+# ==================== TOURNAMENT SERVICE ====================
+
+class TournamentService:
+    """Tournament and Competition System"""
+    
+    async def create_tournament(self, name: str, game: str, entry_fee: float, prize_pool: float, 
+                                start_time: str, end_time: str, max_players: int = 100) -> dict:
+        """Create a new tournament"""
+        tournament_id = str(uuid.uuid4())
+        tournament = {
+            "id": tournament_id,
+            "name": name,
+            "game": game,
+            "entry_fee": entry_fee,
+            "prize_pool": prize_pool,
+            "start_time": start_time,
+            "end_time": end_time,
+            "max_players": max_players,
+            "participants": [],
+            "leaderboard": [],
+            "status": "upcoming",  # upcoming, active, completed
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.tournaments.insert_one(tournament)
+        return tournament
+    
+    async def join_tournament(self, tournament_id: str, user_id: str) -> dict:
+        """Join a tournament"""
+        tournament = await db.tournaments.find_one({"id": tournament_id}, {"_id": 0})
+        if not tournament:
+            return {"success": False, "error": "Tournament not found"}
+        
+        if tournament["status"] != "upcoming" and tournament["status"] != "active":
+            return {"success": False, "error": "Tournament not accepting entries"}
+        
+        if user_id in tournament["participants"]:
+            return {"success": False, "error": "Already joined"}
+        
+        if len(tournament["participants"]) >= tournament["max_players"]:
+            return {"success": False, "error": "Tournament full"}
+        
+        # Check user balance for entry fee
+        user = await db.users.find_one({"id": user_id}, {"_id": 0})
+        if user["balance"] < tournament["entry_fee"]:
+            return {"success": False, "error": "Insufficient balance for entry fee"}
+        
+        # Deduct entry fee
+        await db.users.update_one(
+            {"id": user_id},
+            {"$inc": {"balance": -tournament["entry_fee"]}}
+        )
+        
+        # Add to prize pool and participants
+        await db.tournaments.update_one(
+            {"id": tournament_id},
+            {
+                "$push": {"participants": user_id},
+                "$inc": {"prize_pool": tournament["entry_fee"] * 0.9}  # 10% house edge
+            }
+        )
+        
+        # Record entry
+        await db.tournament_entries.insert_one({
+            "id": str(uuid.uuid4()),
+            "tournament_id": tournament_id,
+            "user_id": user_id,
+            "score": 0,
+            "spins": 0,
+            "best_win": 0,
+            "joined_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        return {"success": True, "message": f"Joined tournament: {tournament['name']}"}
+    
+    async def record_tournament_play(self, tournament_id: str, user_id: str, 
+                                      bet_amount: float, win_amount: float) -> dict:
+        """Record a play in a tournament"""
+        # Update entry stats
+        entry = await db.tournament_entries.find_one(
+            {"tournament_id": tournament_id, "user_id": user_id},
+            {"_id": 0}
+        )
+        
+        if not entry:
+            return {"success": False, "error": "Not in tournament"}
+        
+        # Score based on win multiplier
+        score_earned = (win_amount / bet_amount) if bet_amount > 0 else 0
+        
+        await db.tournament_entries.update_one(
+            {"tournament_id": tournament_id, "user_id": user_id},
+            {
+                "$inc": {"score": score_earned, "spins": 1},
+                "$max": {"best_win": win_amount}
+            }
+        )
+        
+        return {"success": True, "score_earned": score_earned}
+    
+    async def get_tournament_leaderboard(self, tournament_id: str) -> list:
+        """Get tournament leaderboard"""
+        entries = await db.tournament_entries.find(
+            {"tournament_id": tournament_id},
+            {"_id": 0}
+        ).sort("score", -1).limit(50).to_list(50)
+        
+        # Add usernames
+        for i, entry in enumerate(entries):
+            user = await db.users.find_one({"id": entry["user_id"]}, {"_id": 0, "username": 1})
+            entry["rank"] = i + 1
+            entry["username"] = user.get("username", "Unknown") if user else "Unknown"
+        
+        return entries
+    
+    async def get_active_tournaments(self) -> list:
+        """Get all active and upcoming tournaments"""
+        now = datetime.now(timezone.utc).isoformat()
+        tournaments = await db.tournaments.find(
+            {"status": {"$in": ["upcoming", "active"]}},
+            {"_id": 0}
+        ).sort("start_time", 1).to_list(20)
+        return tournaments
+    
+    async def complete_tournament(self, tournament_id: str) -> dict:
+        """Complete tournament and distribute prizes"""
+        tournament = await db.tournaments.find_one({"id": tournament_id}, {"_id": 0})
+        if not tournament:
+            return {"error": "Tournament not found"}
+        
+        leaderboard = await self.get_tournament_leaderboard(tournament_id)
+        prize_pool = tournament["prize_pool"]
+        
+        # Prize distribution: 50%, 25%, 15%, 10% for top 4
+        prizes = [0.5, 0.25, 0.15, 0.10]
+        winners = []
+        
+        for i, entry in enumerate(leaderboard[:4]):
+            if i < len(prizes):
+                prize = prize_pool * prizes[i]
+                await db.users.update_one(
+                    {"id": entry["user_id"]},
+                    {"$inc": {"balance": prize}}
+                )
+                winners.append({
+                    "rank": i + 1,
+                    "user_id": entry["user_id"],
+                    "username": entry["username"],
+                    "prize": prize,
+                    "score": entry["score"]
+                })
+        
+        await db.tournaments.update_one(
+            {"id": tournament_id},
+            {"$set": {"status": "completed", "winners": winners}}
+        )
+        
+        return {"success": True, "winners": winners}
+
+tournament_service = TournamentService()
+
+# ==================== DAILY CHALLENGES SERVICE ====================
+
+class DailyChallengesService:
+    """Daily challenges and rewards system"""
+    
+    CHALLENGE_TEMPLATES = [
+        {"id": "spin_slots", "name": "Slot Spinner", "description": "Spin slots 20 times", "target": 20, "reward": 10, "game": "slots"},
+        {"id": "win_blackjack", "name": "Card Shark", "description": "Win 5 blackjack hands", "target": 5, "reward": 15, "game": "blackjack"},
+        {"id": "roulette_streak", "name": "Lucky Streak", "description": "Win 3 roulette bets in a row", "target": 3, "reward": 20, "game": "roulette"},
+        {"id": "big_win", "name": "Big Winner", "description": "Win 10x or more on a single bet", "target": 10, "reward": 25, "game": "any"},
+        {"id": "total_wagered", "name": "High Roller", "description": "Wager $100 total today", "target": 100, "reward": 15, "game": "any"},
+        {"id": "play_poker", "name": "Poker Pro", "description": "Play 10 poker hands", "target": 10, "reward": 10, "game": "poker"},
+        {"id": "themed_slots", "name": "Theme Explorer", "description": "Play 5 different themed slots", "target": 5, "reward": 20, "game": "themed"},
+        {"id": "jackpot_hunter", "name": "Jackpot Hunter", "description": "Contribute $10 to the jackpot", "target": 10, "reward": 30, "game": "any"},
+    ]
+    
+    async def get_daily_challenges(self, user_id: str) -> list:
+        """Get user's daily challenges"""
+        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        
+        # Check if user has challenges for today
+        challenges = await db.daily_challenges.find(
+            {"user_id": user_id, "date": today},
+            {"_id": 0}
+        ).to_list(10)
+        
+        if not challenges:
+            # Generate new challenges for today (pick 3 random)
+            selected = random.sample(self.CHALLENGE_TEMPLATES, 3)
+            challenges = []
+            for template in selected:
+                challenge = {
+                    "id": str(uuid.uuid4()),
+                    "user_id": user_id,
+                    "template_id": template["id"],
+                    "name": template["name"],
+                    "description": template["description"],
+                    "target": template["target"],
+                    "progress": 0,
+                    "reward": template["reward"],
+                    "game": template["game"],
+                    "completed": False,
+                    "claimed": False,
+                    "date": today
+                }
+                await db.daily_challenges.insert_one(challenge)
+                challenges.append(challenge)
+        
+        return challenges
+    
+    async def update_challenge_progress(self, user_id: str, game: str, 
+                                         action: str, value: float = 1) -> list:
+        """Update challenge progress based on game activity"""
+        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        
+        challenges = await db.daily_challenges.find(
+            {"user_id": user_id, "date": today, "completed": False},
+            {"_id": 0}
+        ).to_list(10)
+        
+        updated = []
+        for challenge in challenges:
+            should_update = False
+            increment = 0
+            
+            # Match challenge to activity
+            if challenge["template_id"] == "spin_slots" and game in ["slots", "themed_slot"]:
+                should_update = True
+                increment = 1
+            elif challenge["template_id"] == "win_blackjack" and game == "blackjack" and action == "win":
+                should_update = True
+                increment = 1
+            elif challenge["template_id"] == "roulette_streak" and game == "roulette" and action == "win":
+                should_update = True
+                increment = 1
+            elif challenge["template_id"] == "big_win" and action == "multiplier":
+                if value >= challenge["target"]:
+                    should_update = True
+                    increment = challenge["target"]  # Complete immediately
+            elif challenge["template_id"] == "total_wagered" and action == "wager":
+                should_update = True
+                increment = value
+            elif challenge["template_id"] == "play_poker" and game == "poker":
+                should_update = True
+                increment = 1
+            elif challenge["template_id"] == "themed_slots" and "themed_slot" in game:
+                should_update = True
+                increment = 1
+            elif challenge["template_id"] == "jackpot_hunter" and action == "jackpot_contribution":
+                should_update = True
+                increment = value
+            
+            if should_update and increment > 0:
+                new_progress = min(challenge["progress"] + increment, challenge["target"])
+                completed = new_progress >= challenge["target"]
+                
+                await db.daily_challenges.update_one(
+                    {"id": challenge["id"]},
+                    {"$set": {"progress": new_progress, "completed": completed}}
+                )
+                
+                updated.append({
+                    "challenge_id": challenge["id"],
+                    "name": challenge["name"],
+                    "progress": new_progress,
+                    "target": challenge["target"],
+                    "completed": completed
+                })
+        
+        return updated
+    
+    async def claim_challenge_reward(self, user_id: str, challenge_id: str) -> dict:
+        """Claim reward for completed challenge"""
+        challenge = await db.daily_challenges.find_one(
+            {"id": challenge_id, "user_id": user_id},
+            {"_id": 0}
+        )
+        
+        if not challenge:
+            return {"success": False, "error": "Challenge not found"}
+        
+        if not challenge["completed"]:
+            return {"success": False, "error": "Challenge not completed"}
+        
+        if challenge["claimed"]:
+            return {"success": False, "error": "Reward already claimed"}
+        
+        # Add reward
+        await db.users.update_one(
+            {"id": user_id},
+            {"$inc": {"balance": challenge["reward"]}}
+        )
+        
+        await db.daily_challenges.update_one(
+            {"id": challenge_id},
+            {"$set": {"claimed": True}}
+        )
+        
+        await db.transactions.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "type": "bonus",
+            "amount": challenge["reward"],
+            "method": "daily_challenge",
+            "status": "completed",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "details": {"challenge": challenge["name"]}
+        })
+        
+        return {"success": True, "reward": challenge["reward"], "challenge": challenge["name"]}
+
+daily_challenges_service = DailyChallengesService()
+
+# ==================== ENHANCED SLOTS (5-REEL WITH BONUS) ====================
+
+class EnhancedSlotMachine:
+    """5-reel slot machine with wilds, scatters, and bonus rounds"""
+    
+    def __init__(self):
+        self.reels = 5
+        self.rows = 3
+        self.paylines = [
+            [1, 1, 1, 1, 1],  # Middle row
+            [0, 0, 0, 0, 0],  # Top row
+            [2, 2, 2, 2, 2],  # Bottom row
+            [0, 1, 2, 1, 0],  # V shape
+            [2, 1, 0, 1, 2],  # Inverted V
+            [0, 0, 1, 2, 2],  # Diagonal down
+            [2, 2, 1, 0, 0],  # Diagonal up
+            [1, 0, 0, 0, 1],  # U shape top
+            [1, 2, 2, 2, 1],  # U shape bottom
+            [0, 1, 1, 1, 0],  # Flat top bump
+        ]
+        
+        self.symbols = {
+            "🍒": {"value": 2, "frequency": 30},
+            "🍋": {"value": 3, "frequency": 25},
+            "🍊": {"value": 4, "frequency": 22},
+            "🍇": {"value": 5, "frequency": 18},
+            "🔔": {"value": 8, "frequency": 12},
+            "⭐": {"value": 15, "frequency": 8},
+            "7️⃣": {"value": 30, "frequency": 4},
+            "💎": {"value": 50, "frequency": 2},  # Wild
+            "🎰": {"value": 0, "frequency": 3},   # Scatter (triggers bonus)
+        }
+        
+        self.wild = "💎"
+        self.scatter = "🎰"
+    
+    def spin(self, bet_per_line: float, lines: int = 10) -> dict:
+        """Perform a 5-reel spin"""
+        # Generate grid
+        symbols_list = list(self.symbols.keys())
+        weights = [self.symbols[s]["frequency"] for s in symbols_list]
+        
+        grid = []
+        for _ in range(self.rows):
+            row = [random.choices(symbols_list, weights=weights)[0] for _ in range(self.reels)]
+            grid.append(row)
+        
+        # Check paylines
+        total_win = 0
+        winning_lines = []
+        
+        for line_idx, payline in enumerate(self.paylines[:lines]):
+            line_symbols = [grid[payline[reel]][reel] for reel in range(self.reels)]
+            win, count = self._check_line(line_symbols)
+            if win > 0:
+                line_win = win * bet_per_line
+                total_win += line_win
+                winning_lines.append({
+                    "line": line_idx + 1,
+                    "symbols": line_symbols,
+                    "count": count,
+                    "win": line_win
+                })
+        
+        # Check for scatters (bonus trigger)
+        scatter_count = sum(row.count(self.scatter) for row in grid)
+        bonus_triggered = scatter_count >= 3
+        free_spins = 0
+        bonus_multiplier = 1
+        
+        if bonus_triggered:
+            free_spins = scatter_count * 5  # 15, 20, or 25 free spins
+            bonus_multiplier = 2 if scatter_count >= 4 else 1.5
+        
+        return {
+            "grid": grid,
+            "total_win": total_win,
+            "winning_lines": winning_lines,
+            "scatter_count": scatter_count,
+            "bonus_triggered": bonus_triggered,
+            "free_spins": free_spins,
+            "bonus_multiplier": bonus_multiplier,
+            "bet_total": bet_per_line * lines
+        }
+    
+    def _check_line(self, line: list) -> tuple:
+        """Check a payline for wins"""
+        first_symbol = line[0] if line[0] != self.wild else None
+        count = 0
+        
+        for symbol in line:
+            if symbol == self.wild:
+                count += 1
+                if first_symbol is None and count < len(line):
+                    # Find first non-wild
+                    for s in line[count:]:
+                        if s != self.wild and s != self.scatter:
+                            first_symbol = s
+                            break
+            elif symbol == first_symbol or first_symbol is None:
+                if first_symbol is None and symbol != self.scatter:
+                    first_symbol = symbol
+                count += 1
+            else:
+                break
+        
+        if count >= 3 and first_symbol and first_symbol != self.scatter:
+            base_value = self.symbols[first_symbol]["value"]
+            multiplier = {3: 1, 4: 3, 5: 10}
+            return base_value * multiplier.get(count, 1), count
+        
+        return 0, 0
+
+enhanced_slot_machine = EnhancedSlotMachine()
+
 # ==================== RESPONSIBLE GAMBLING SERVICE ====================
 
 class ResponsibleGamblingService:
