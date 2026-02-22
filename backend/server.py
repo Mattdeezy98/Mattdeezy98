@@ -2699,6 +2699,23 @@ async def get_leaderboard():
     ).sort("balance", -1).limit(10).to_list(10)
     return {"leaderboard": top_players}
 
+# ==================== SEED DATA ====================
+
+@api_router.post("/admin/seed-tournament")
+async def seed_tournament():
+    """Create a sample tournament for testing"""
+    now = datetime.now(timezone.utc)
+    tournament = await tournament_service.create_tournament(
+        name="Weekend Slots Championship",
+        game="slots",
+        entry_fee=10.0,
+        prize_pool=500.0,
+        start_time=now.isoformat(),
+        end_time=(now + timedelta(days=2)).isoformat(),
+        max_players=50
+    )
+    return tournament
+
 # ==================== ROOT ====================
 
 @api_router.get("/")
