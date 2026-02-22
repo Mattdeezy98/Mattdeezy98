@@ -63,6 +63,15 @@ JACKPOT_CONTRIBUTION_RATE = 0.02
 JACKPOT_WIN_PROBABILITY = 0.0001
 MINIMUM_JACKPOT = 1000.0
 
+# VIP Tier Configuration
+VIP_TIERS = {
+    "bronze": {"min_wagered": 0, "cashback": 0.01, "bonus_multiplier": 1.0, "daily_bonus": 5},
+    "silver": {"min_wagered": 1000, "cashback": 0.02, "bonus_multiplier": 1.1, "daily_bonus": 15},
+    "gold": {"min_wagered": 5000, "cashback": 0.03, "bonus_multiplier": 1.25, "daily_bonus": 50},
+    "platinum": {"min_wagered": 25000, "cashback": 0.05, "bonus_multiplier": 1.5, "daily_bonus": 150},
+    "diamond": {"min_wagered": 100000, "cashback": 0.08, "bonus_multiplier": 2.0, "daily_bonus": 500}
+}
+
 # Security
 security = HTTPBearer()
 
