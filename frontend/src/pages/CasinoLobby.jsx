@@ -1,407 +1,427 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth, API } from "../App";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../components/ui/button";
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
-import { Zap, Wallet, User, LogOut, Gamepad2, Trophy, ChevronDown, Shield, Sparkles, ExternalLink } from "lucide-react";
-import { JackpotDisplay } from "../components/Jackpot";
-import { ResponsibleGamblingModal } from "../components/ResponsibleGambling";
+import { toast } from "sonner";
 import axios from "axios";
+import { 
+  Menu, Home, Clock, Gift, MessageCircle, Settings, 
+  ChevronRight, Crown, Wallet, LogOut, User
+} from "lucide-react";
 
-const NavBar = ({ onOpenRG }) => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+// Provider logos/icons mapping
+const PROVIDER_LOGOS = {
+  jili: { name: "JILI", color: "#ff6b35", textColor: "#fff" },
+  pragmatic: { name: "PRAGMATIC", color: "#e91e63", textColor: "#fff" },
+  pgsoft: { name: "PG SOFT", color: "#7c3aed", textColor: "#fff" },
+  spadegaming: { name: "SPADE", color: "#10b981", textColor: "#fff" },
+  microgaming: { name: "MICRO GAMING", color: "#dc2626", textColor: "#fff" },
+  hacksaw: { name: "HACKSAW", color: "#f59e0b", textColor: "#000" },
+  evo888: { name: "EVO888H5", color: "#fbbf24", textColor: "#000" },
+  epicwin: { name: "EPIC WIN", color: "#8b5cf6", textColor: "#fff" },
+  afb777: { name: "AFB777", color: "#ef4444", textColor: "#fff" },
+  vpower: { name: "V POWER", color: "#3b82f6", textColor: "#fff" },
+  pegasus: { name: "PEGASUS", color: "#6366f1", textColor: "#fff" },
+  booongo: { name: "BOOONGO", color: "#22c55e", textColor: "#fff" },
+  advantplay: { name: "ADVANT PLAY", color: "#0ea5e9", textColor: "#fff" },
+  jdb: { name: "JDB", color: "#f97316", textColor: "#fff" },
+  uuslots: { name: "UU SLOTS", color: "#ec4899", textColor: "#fff" },
+  acewin: { name: "ACE WIN", color: "#14b8a6", textColor: "#fff" },
+  ace333: { name: "ACE333", color: "#eab308", textColor: "#000" },
+  yellowbat: { name: "YELLOW BAT", color: "#facc15", textColor: "#000" },
+  bgaming: { name: "BGAMING", color: "#64748b", textColor: "#fff" },
+  fastspin: { name: "FAST SPIN", color: "#f43f5e", textColor: "#fff" },
+  metagaming: { name: "META GAMING", color: "#d946ef", textColor: "#fff" },
+  cq9: { name: "CQ9", color: "#0891b2", textColor: "#fff" },
+  joker: { name: "JOKER", color: "#84cc16", textColor: "#000" },
+  slotomania: { name: "SLOTOMANIA", color: "#c026d3", textColor: "#fff" },
+  rich: { name: "RICH", color: "#fbbf24", textColor: "#000" },
+};
 
-  return (
-    <nav className="sticky top-0 z-50 glass-heavy border-b border-white/10">
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 py-3">
-        <Link to="/lobby" className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-600 flex items-center justify-center">
-            <Zap className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-heading text-lg font-bold gradient-text hidden sm:block">NeonVegas</span>
-        </Link>
+// Popular games with images
+const POPULAR_GAMES = [
+  { id: "sugar_rush_1000", name: "Sugar Rush 1000", provider: "pragmatic", image: "https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=400&h=400&fit=crop", hot: true },
+  { id: "big_bass_bonanza", name: "Big Bass Bonanza 1000", provider: "pragmatic", image: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=400&fit=crop", hot: true },
+  { id: "gates_of_gatot", name: "Gates of Gatot Kaca", provider: "pragmatic", image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=400&fit=crop", hot: true },
+  { id: "starlight_princess", name: "Starlight Princess 1000", provider: "pragmatic", image: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&h=400&fit=crop", new: true },
+  { id: "sweet_bonanza", name: "Sweet Bonanza 1000", provider: "pragmatic", image: "https://images.unsplash.com/photo-1499195333224-3ce974eecb47?w=400&h=400&fit=crop", hot: true },
+  { id: "wisdom_athena", name: "Wisdom of Athena", provider: "pragmatic", image: "https://images.unsplash.com/photo-1608889175123-8ee362201f81?w=400&h=400&fit=crop", new: true },
+  { id: "lucky_tiger", name: "Lucky Tiger 1000", provider: "pgsoft", image: "https://images.unsplash.com/photo-1615963244664-5b845b2025ee?w=400&h=400&fit=crop", hot: true },
+  { id: "gates_olympus", name: "Gates of Olympus 1000", provider: "pragmatic", image: "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=400&h=400&fit=crop", hot: true },
+  { id: "fortune_tiger", name: "Fortune Tiger", provider: "pgsoft", image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&h=400&fit=crop", new: true },
+];
 
-        <div className="flex items-center gap-3">
-          {/* Balance Display */}
-          <Button
-            variant="outline"
-            className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 rounded-full px-4"
-            onClick={() => navigate("/wallet")}
-            data-testid="nav-balance-btn"
-          >
-            <Wallet className="w-4 h-4 mr-2" />
-            <span className="font-mono font-bold">${user?.balance?.toFixed(2) || '0.00'}</span>
-          </Button>
-
-          {/* Deposit Button */}
-          <Button
-            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 rounded-full px-4"
-            onClick={() => navigate("/wallet")}
-            data-testid="nav-deposit-btn"
-          >
-            + Deposit
-          </Button>
-
-          {/* User Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="rounded-full px-3 hover:bg-white/10" data-testid="nav-user-menu">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 flex items-center justify-center mr-2">
-                  <User className="w-4 h-4 text-white" />
-                </div>
-                <span className="hidden sm:block text-white">{user?.username}</span>
-                <ChevronDown className="w-4 h-4 ml-1 text-gray-400" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 bg-zinc-900 border-white/10">
-              <div className="px-3 py-2">
-                <p className="text-sm font-medium text-white">{user?.username}</p>
-                <p className="text-xs text-gray-400">{user?.email}</p>
-              </div>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem 
-                onClick={() => navigate("/lobby")} 
-                className="text-gray-300 hover:text-white cursor-pointer"
-                data-testid="menu-games"
-              >
-                <Gamepad2 className="w-4 h-4 mr-2" />
-                Games
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => navigate("/wallet")} 
-                className="text-gray-300 hover:text-white cursor-pointer"
-                data-testid="menu-wallet"
-              >
-                <Wallet className="w-4 h-4 mr-2" />
-                Wallet
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={onOpenRG} 
-                className="text-green-400 hover:text-green-300 cursor-pointer"
-                data-testid="menu-responsible-gambling"
-              >
-                <Shield className="w-4 h-4 mr-2" />
-                Responsible Gambling
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem 
-                onClick={() => {
-                  logout();
-                  navigate("/");
-                }} 
-                className="text-red-400 hover:text-red-300 cursor-pointer"
-                data-testid="menu-logout"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-    </nav>
-  );
+// Live transactions mock data
+const generateTransactions = () => {
+  const types = ["deposit", "withdraw"];
+  const providers = ["JILI", "BNG", "PG", "PP"];
+  const transactions = [];
+  for (let i = 0; i < 10; i++) {
+    transactions.push({
+      id: `61******${Math.floor(Math.random() * 900) + 100}`,
+      type: types[Math.floor(Math.random() * 2)],
+      amount: (Math.random() * 100 + 10).toFixed(2),
+      provider: providers[Math.floor(Math.random() * providers.length)],
+    });
+  }
+  return transactions;
 };
 
 const CasinoLobby = () => {
+  const { user, logout, token } = useAuth();
   const navigate = useNavigate();
-  const [showRGModal, setShowRGModal] = useState(false);
-  const [themedSlots, setThemedSlots] = useState([]);
-  const [providers, setProviders] = useState({});
+  const [activeCategory, setActiveCategory] = useState("pokies");
+  const [providers, setProviders] = useState([]);
+  const [transactions, setTransactions] = useState(generateTransactions());
+  const [showMenu, setShowMenu] = useState(false);
 
-  useEffect(() => {
-    fetchThemedSlots();
-    fetchProviders();
-  }, []);
-
-  const fetchThemedSlots = async () => {
-    try {
-      const response = await axios.get(`${API}/games/themed-slots`);
-      setThemedSlots(response.data.slots || []);
-    } catch (error) {
-      console.error("Failed to fetch themed slots:", error);
-    }
-  };
-
-  const fetchProviders = async () => {
-    try {
-      const response = await axios.get(`${API}/providers/status`);
-      setProviders(response.data);
-    } catch (error) {
-      console.error("Failed to fetch providers:", error);
-    }
-  };
-
-  const games = [
-    {
-      id: "slots",
-      name: "Mega Slots",
-      description: "Spin to win up to 100x!",
-      image: "https://images.unsplash.com/photo-1566563255308-753861417000?crop=entropy&cs=srgb&fm=jpg&q=85&w=600",
-      color: "from-pink-600 to-purple-600",
-      minBet: "$0.50",
-      maxWin: "100x",
-    },
-    {
-      id: "blackjack",
-      name: "Blackjack",
-      description: "Beat the dealer to 21",
-      image: "https://images.unsplash.com/photo-1642867749315-d1467617a2f4?crop=entropy&cs=srgb&fm=jpg&q=85&w=600",
-      color: "from-emerald-600 to-teal-600",
-      minBet: "$1.00",
-      maxWin: "2.5x",
-    },
-    {
-      id: "roulette",
-      name: "Roulette",
-      description: "Place your bets & spin",
-      image: "https://images.pexels.com/photos/7594162/pexels-photo-7594162.jpeg?w=600",
-      color: "from-red-600 to-orange-600",
-      minBet: "$1.00",
-      maxWin: "35x",
-    },
-    {
-      id: "poker",
-      name: "Video Poker",
-      description: "Jacks or Better",
-      image: "https://images.unsplash.com/photo-1743677042704-74a8390e765a?crop=entropy&cs=srgb&fm=jpg&q=85&w=600",
-      color: "from-cyan-600 to-blue-600",
-      minBet: "$0.50",
-      maxWin: "800x",
-    },
+  const categories = [
+    { id: "pokies", name: "POKIES", icon: "🎰" },
+    { id: "slots", name: "SLOTS", icon: "🎲" },
+    { id: "live", name: "LIVE", icon: "🎬" },
+    { id: "fishing", name: "FISHING", icon: "🐟" },
+    { id: "events", name: "EVENTS", icon: "🎁" },
   ];
 
-  const getThemeGradient = (theme) => {
-    const gradients = {
-      egyptian: "from-yellow-700 to-amber-900",
-      asian: "from-red-700 to-rose-900",
-      classic: "from-indigo-700 to-slate-900",
-      underwater: "from-cyan-700 to-blue-900",
-      fruit: "from-green-700 to-emerald-900",
-      space: "from-purple-900 to-indigo-950",
-      safari: "from-amber-700 to-orange-900",
-      fantasy: "from-violet-700 to-purple-900"
+  useEffect(() => {
+    // Fetch providers
+    const fetchProviders = async () => {
+      try {
+        const res = await axios.get(`${API}/providers/status`);
+        setProviders(Object.entries(res.data));
+      } catch (e) {
+        console.error(e);
+      }
     };
-    return gradients[theme] || "from-gray-700 to-gray-900";
-  };
+    fetchProviders();
+
+    // Update transactions every 5 seconds
+    const interval = setInterval(() => {
+      setTransactions(generateTransactions());
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const allProviders = Object.keys(PROVIDER_LOGOS);
 
   return (
-    <div className="min-h-screen bg-[#050505]">
-      <NavBar onOpenRG={() => setShowRGModal(true)} />
-
-      {/* Hero Banner with Jackpot */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-900/40 via-transparent to-cyan-900/40" />
-        <div className="max-w-7xl mx-auto px-4 py-8 relative">
-          {/* Jackpot Display */}
-          <JackpotDisplay className="mb-6" />
+    <div className="min-h-screen bg-black pb-20">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-sm border-b border-yellow-900/30">
+        <div className="flex items-center justify-between px-4 py-3">
+          <button onClick={() => setShowMenu(!showMenu)} className="text-white p-2">
+            <Menu className="w-6 h-6" />
+          </button>
           
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center"
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-lg gold-border flex items-center justify-center">
+              <Crown className="w-6 h-6 text-yellow-500" />
+            </div>
+            <div>
+              <h1 className="font-bold text-lg gold-text font-heading">NEON</h1>
+              <p className="text-[10px] text-yellow-600 -mt-1">BETKING</p>
+            </div>
+          </div>
+
+          <button 
+            onClick={() => navigate("/wallet")}
+            className="flex items-center gap-1 bg-gradient-to-r from-yellow-600 to-yellow-500 text-black px-3 py-1.5 rounded-full text-sm font-bold"
           >
-            <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
-              Choose Your <span className="gradient-text">Game</span>
-            </h1>
-            <p className="text-gray-400 max-w-lg mx-auto">
-              Premium casino games with the best odds. Play smart, win big.
-            </p>
-          </motion.div>
+            <Wallet className="w-4 h-4" />
+            ${user?.balance?.toFixed(2) || '0.00'}
+          </button>
         </div>
-      </div>
 
-      {/* Games Grid */}
-      <div className="max-w-7xl mx-auto px-4 pb-20">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {games.map((game, index) => (
+        {/* Marquee */}
+        <div className="marquee-container py-1.5">
+          <p className="marquee-text text-black text-xs font-semibold">
+            🎰 Premium Black-Gold Pokies Hub For Aussie Players | Same-Day Withdrawals | High RTP Games | 24/7 Customer Support 🎰
+          </p>
+        </div>
+      </header>
+
+      {/* Side Menu */}
+      <AnimatePresence>
+        {showMenu && (
+          <>
             <motion.div
-              key={game.id}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              onClick={() => navigate(`/games/${game.id}`)}
-              className="group cursor-pointer"
-              data-testid={`lobby-game-${game.id}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 z-50"
+              onClick={() => setShowMenu(false)}
+            />
+            <motion.div
+              initial={{ x: -300 }}
+              animate={{ x: 0 }}
+              exit={{ x: -300 }}
+              className="fixed left-0 top-0 bottom-0 w-72 bg-zinc-900 z-50 border-r border-yellow-900/30"
             >
-              <div className="relative overflow-hidden rounded-2xl card-hover neon-border">
-                <div className="aspect-[3/4] relative">
-                  <img
-                    src={game.image}
-                    alt={game.name}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
-                  <div className={`absolute inset-0 bg-gradient-to-t ${game.color} opacity-0 group-hover:opacity-30 transition-opacity duration-300`} />
-                  
-                  {/* Game Info */}
-                  <div className="absolute bottom-0 left-0 right-0 p-5">
-                    <h3 className="font-heading text-xl font-bold text-white mb-1">{game.name}</h3>
-                    <p className="text-gray-400 text-sm mb-3">{game.description}</p>
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">Min: {game.minBet}</span>
-                      <span className="px-2 py-1 rounded bg-yellow-500/20 text-yellow-400 text-xs font-bold">
-                        Up to {game.maxWin}
-                      </span>
-                    </div>
+              <div className="p-6 border-b border-yellow-900/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-yellow-500 to-yellow-600 flex items-center justify-center">
+                    <User className="w-6 h-6 text-black" />
                   </div>
-
-                  {/* Play Button Overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button className={`bg-gradient-to-r ${game.color} rounded-full px-8 py-3 font-bold shadow-lg`}>
-                      <Gamepad2 className="w-5 h-5 mr-2" />
-                      Play Now
-                    </Button>
+                  <div>
+                    <p className="font-bold text-white">{user?.username}</p>
+                    <p className="text-xs text-yellow-500">VIP Member</p>
                   </div>
                 </div>
               </div>
+              <nav className="p-4 space-y-2">
+                {[
+                  { icon: Home, label: "Home", path: "/lobby" },
+                  { icon: Wallet, label: "Wallet", path: "/wallet" },
+                  { icon: Crown, label: "VIP Club", path: "/vip" },
+                  { icon: Gift, label: "Bonus", path: "/bonus" },
+                  { icon: Clock, label: "History", path: "/history" },
+                  { icon: Settings, label: "Settings", path: "/settings" },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => { navigate(item.path); setShowMenu(false); }}
+                    className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-yellow-500/10 text-gray-300 hover:text-yellow-500 transition-colors"
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+                <button
+                  onClick={() => { logout(); navigate("/"); }}
+                  className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-red-500/10 text-red-400 transition-colors mt-4"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span>Logout</span>
+                </button>
+              </nav>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Category Tabs */}
+      <div className="px-3 py-3 overflow-x-auto">
+        <div className="flex gap-2">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setActiveCategory(cat.id)}
+              className={`category-tab flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
+                activeCategory === cat.id 
+                  ? 'active bg-gradient-to-r from-yellow-500 to-yellow-600 text-black' 
+                  : 'text-gray-300'
+              }`}
+            >
+              <span>{cat.icon}</span>
+              <span>{cat.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Promo Banner */}
+      <div className="px-3 mb-4">
+        <div className="promo-banner relative overflow-hidden rounded-2xl">
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent z-10" />
+          <img 
+            src="https://images.unsplash.com/photo-1596838132731-3301c3fd4317?w=800&h=300&fit=crop" 
+            alt="Promo" 
+            className="w-full h-40 object-cover"
+          />
+          <div className="absolute inset-0 z-20 p-6 flex flex-col justify-center">
+            <p className="text-yellow-500 text-sm font-bold">WEEKLY</p>
+            <h2 className="text-white text-2xl font-heading font-bold">KING BONUS</h2>
+            <p className="gold-text text-4xl font-heading font-black">$2000</p>
+          </div>
+          <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5 z-20">
+            {[0,1,2,3].map(i => (
+              <div key={i} className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-yellow-500' : 'bg-gray-600'}`} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="px-3 mb-4">
+        <div className="flex gap-2">
+          <button 
+            onClick={() => navigate("/register")}
+            className="flex-1 py-3 bg-zinc-900 border border-yellow-900/30 rounded-xl flex items-center justify-center gap-2 text-white font-semibold"
+          >
+            REGISTER <ChevronRight className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={() => navigate("/login")}
+            className="flex-1 py-3 bg-zinc-900 border border-yellow-900/30 rounded-xl flex items-center justify-center gap-2 text-white font-semibold"
+          >
+            LOGIN <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Deposit/Withdraw Banner */}
+      <div className="px-3 mb-4">
+        <div className="flex items-center justify-between bg-zinc-900 border border-yellow-900/30 rounded-xl p-3">
+          <div className="flex items-center gap-4">
+            <span className="text-yellow-500 font-bold text-sm">DEPOSIT FAST & SECURE</span>
+            <div className="flex items-center -space-x-1">
+              {['💳', '🏦', '📱', '💰'].map((icon, i) => (
+                <div key={i} className="w-6 h-6 bg-white rounded flex items-center justify-center text-sm">
+                  {icon}
+                </div>
+              ))}
+            </div>
+          </div>
+          <span className="text-yellow-500 font-bold text-sm">WITHDRAW NOW</span>
+        </div>
+      </div>
+
+      {/* Provider Grid */}
+      <div className="px-3 mb-6">
+        <div className="grid grid-cols-3 gap-3">
+          {allProviders.map((providerId, index) => {
+            const provider = PROVIDER_LOGOS[providerId];
+            return (
+              <motion.button
+                key={providerId}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.03 }}
+                onClick={() => navigate(`/games/provider/${providerId}`)}
+                className="provider-card aspect-square flex flex-col items-center justify-center p-3 rounded-2xl"
+              >
+                <div 
+                  className="w-full h-3/4 flex items-center justify-center rounded-lg mb-2"
+                  style={{ backgroundColor: provider.color + '20' }}
+                >
+                  <span 
+                    className="font-bold text-sm text-center leading-tight"
+                    style={{ color: provider.color }}
+                  >
+                    {provider.name}
+                  </span>
+                </div>
+                <div className="ratio-badge">RATIO 1:1</div>
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Live Transactions */}
+      <div className="px-3 mb-6">
+        <div className="bg-zinc-900 border border-yellow-900/30 rounded-xl overflow-hidden">
+          <div className="p-3 border-b border-yellow-900/30">
+            <h3 className="text-white font-bold flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              LIVE TRANSACTION
+            </h3>
+          </div>
+          <div className="grid grid-cols-2">
+            <div className="border-r border-yellow-900/30">
+              <div className="p-2 bg-yellow-500/10 text-yellow-500 font-bold text-sm text-center">
+                DEPOSIT
+              </div>
+              {transactions.filter(t => t.type === 'deposit').slice(0, 4).map((tx, i) => (
+                <div key={i} className="transaction-row p-2 flex justify-between text-sm">
+                  <span className="text-gray-400">{tx.id}</span>
+                  <span className="text-green-400">AUD {tx.amount}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <div className="p-2 bg-yellow-500/10 text-yellow-500 font-bold text-sm text-center">
+                WITHDRAW
+              </div>
+              {transactions.filter(t => t.type === 'withdraw').slice(0, 4).map((tx, i) => (
+                <div key={i} className="transaction-row p-2 flex justify-between text-sm">
+                  <span className="text-gray-400">{tx.id}</span>
+                  <span className="text-yellow-400">AUD {tx.amount}</span>
+                  <span className="text-gray-500 text-xs">{tx.provider}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Popular Games */}
+      <div className="px-3 mb-6">
+        <h3 className="text-white font-bold mb-3 flex items-center gap-2">
+          🔥 HOT GAMES
+        </h3>
+        <div className="grid grid-cols-3 gap-3">
+          {POPULAR_GAMES.map((game, index) => (
+            <motion.div
+              key={game.id}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: index * 0.05 }}
+              className="game-card"
+            >
+              <div className="relative">
+                <img 
+                  src={game.image} 
+                  alt={game.name}
+                  className="game-card-image w-full rounded-t-xl"
+                />
+                {game.hot && (
+                  <span className="absolute top-2 left-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                    HOT
+                  </span>
+                )}
+                {game.new && (
+                  <span className="absolute top-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                    NEW
+                  </span>
+                )}
+              </div>
+              <button 
+                onClick={() => navigate(`/games/play/${game.id}`)}
+                className="play-button w-full py-2 text-center font-bold text-sm rounded-b-xl"
+              >
+                PLAY
+              </button>
             </motion.div>
           ))}
         </div>
-
-        {/* Themed Slots Section */}
-        {themedSlots.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="mt-12"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="font-heading text-2xl font-bold text-white flex items-center gap-2">
-                  <Sparkles className="w-6 h-6 text-yellow-400" />
-                  Themed Slots
-                </h2>
-                <p className="text-gray-400 text-sm">Explore unique slot experiences</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {themedSlots.map((slot, index) => (
-                <motion.div
-                  key={slot.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.05 }}
-                  onClick={() => navigate(`/games/themed/${slot.id}`)}
-                  className="group cursor-pointer"
-                  data-testid={`themed-slot-${slot.id}`}
-                >
-                  <div className={`rounded-xl overflow-hidden card-hover bg-gradient-to-br ${getThemeGradient(slot.theme)}`}>
-                    <div className="aspect-square p-4 flex flex-col items-center justify-center relative">
-                      <div className="text-4xl mb-2 flex gap-1">
-                        {slot.symbols?.slice(0, 3).map((s, i) => (
-                          <span key={i}>{s}</span>
-                        ))}
-                      </div>
-                      <h3 className="font-heading text-lg font-bold text-white text-center">{slot.name}</h3>
-                      <p className="text-white/70 text-xs mt-1">{slot.description}</p>
-                      
-                      <div className="absolute bottom-2 left-2 right-2 flex justify-between text-[10px]">
-                        <span className="px-1.5 py-0.5 bg-black/30 rounded text-white">
-                          RTP: {slot.rtp}%
-                        </span>
-                        <span className="px-1.5 py-0.5 bg-yellow-500/30 rounded text-yellow-300">
-                          {slot.max_multiplier}x
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* External Provider Games Section */}
-        {Object.keys(providers).length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="mt-12"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="font-heading text-2xl font-bold text-white flex items-center gap-2">
-                  <ExternalLink className="w-6 h-6 text-purple-400" />
-                  Provider Games
-                </h2>
-                <p className="text-gray-400 text-sm">JILI, Imperium, Slotomania & Rich</p>
-              </div>
-              <Button
-                onClick={() => navigate("/games/providers")}
-                variant="outline"
-                className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 rounded-full"
-                data-testid="view-all-providers"
-              >
-                View All
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {Object.entries(providers).map(([id, info], index) => (
-                <motion.div
-                  key={id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  onClick={() => navigate("/games/providers")}
-                  className="glass rounded-xl p-4 cursor-pointer card-hover text-center"
-                  data-testid={`provider-card-${id}`}
-                >
-                  <div className="text-4xl mb-2">
-                    {id === "jili" ? "🎰" : id === "imperium" ? "👑" : id === "slotomania" ? "🎲" : "💰"}
-                  </div>
-                  <h3 className="font-heading text-lg font-bold text-white">{info.name}</h3>
-                  <p className="text-gray-400 text-sm">{info.games_count} games</p>
-                  <span className={`inline-block mt-2 px-2 py-0.5 rounded text-xs ${
-                    info.configured ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {info.configured ? 'Live' : 'Demo'}
-                  </span>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Quick Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-4"
-        >
-          {[
-            { label: "Total Won Today", value: "$847,392", color: "text-green-400" },
-            { label: "Active Players", value: "1,234", color: "text-cyan-400" },
-            { label: "Biggest Win", value: "$12,500", color: "text-yellow-400" },
-            { label: "Games Played", value: "45,678", color: "text-purple-400" },
-          ].map((stat, index) => (
-            <div key={index} className="glass rounded-xl p-4 text-center">
-              <p className={`font-heading text-xl font-bold ${stat.color}`}>{stat.value}</p>
-              <p className="text-xs text-gray-500">{stat.label}</p>
-            </div>
-          ))}
-        </motion.div>
       </div>
 
-      {/* Responsible Gambling Modal */}
-      <ResponsibleGamblingModal 
-        open={showRGModal} 
-        onClose={() => setShowRGModal(false)} 
-      />
+      {/* Bottom Navigation */}
+      <nav className="bottom-nav fixed bottom-0 left-0 right-0 z-40">
+        <div className="flex items-center justify-around py-2">
+          {[
+            { icon: Home, label: "HOME", path: "/lobby", active: true },
+            { icon: Clock, label: "HISTORY", path: "/history" },
+            { icon: Gift, label: "BONUS", path: "/bonus", badge: 1 },
+            { icon: MessageCircle, label: "LIVE CHAT", path: "/chat", badge: 1 },
+            { icon: Settings, label: "SETTING", path: "/settings" },
+          ].map((item) => (
+            <button
+              key={item.label}
+              onClick={() => navigate(item.path)}
+              className={`bottom-nav-item flex flex-col items-center gap-1 px-3 py-1 ${item.active ? 'active' : ''}`}
+            >
+              <div className="relative">
+                {item.label === "BONUS" ? (
+                  <div className="w-10 h-10 -mt-4 bg-gradient-to-t from-yellow-600 to-yellow-400 rounded-full flex items-center justify-center border-4 border-black">
+                    <Crown className="w-5 h-5 text-black" />
+                  </div>
+                ) : (
+                  <item.icon className="w-5 h-5" />
+                )}
+                {item.badge && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {item.badge}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] font-medium">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 };
